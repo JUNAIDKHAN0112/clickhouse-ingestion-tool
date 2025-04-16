@@ -35,13 +35,8 @@ The ClickHouse Ingestion Tool is a web application designed to facilitate data t
 * Build Tool: Maven
 * Testing: JUnit 5, Spring Boot Test
 
-## Screenshots
+ 
 
-Include screenshots of your application's UI to give a quick visual overview. For example:
-
-* Connection configuration form
-* Table/column selection view
-* Ingestion progress/completion message
 
 ## Setup and Installation
 
@@ -53,7 +48,7 @@ Include screenshots of your application's UI to give a quick visual overview. Fo
 2.  Clone the repository:
 
     ```
-    git clone [https://github.com/your-username/clickhouse-ingestion-tool.git](https://github.com/your-username/clickhouse-ingestion-tool.git)
+    git clone [(https://github.com/JUNAIDKHAN0112/clickhouse-ingestion-tool.git)]
     cd clickhouse-ingestion-tool
     ```
 3.  Configure ClickHouse connection:
