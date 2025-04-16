@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClickHouse Ingestion Tool</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for elements that Tailwind doesn't directly handle or for more game-like styling */
+        .container {
+            margin-top: 2rem; /* Increased margin for better spacing */
+            margin-bottom: 2rem;
+        }
+        .input, .button, select {
+            border-radius: 0.5rem; /* Rounded corners using rem values */
+            padding: 0.75rem; /* Increased padding for better touch area */
+            margin-bottom: 1rem; /* Consistent margin bottom */
+            width: 100%; /* Full width for consistency */
+            box-sizing: border-box; /* Include padding and border in element's total width and height */
+        }
+        .input {
+            border: 1px solid #e5e7eb; /* Tailwind's gray-200 */
+            background-color: #f9fafb; /* Tailwind's gray-50 */
+            color: #6b7280; /* Tailwind's gray-500 */
+        }
+        .input:focus {
+            outline: none; /* Remove default outline */
+            border-color: #3b82f6; /* Tailwind's blue-500 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); /* Light blue shadow, using rgba */
+        }
+        .button {
+            background-color: #4CAF50; /* Green */
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem; /* Increased font size */
+            transition: background-color 0.3s ease; /* Smooth transition */
+        }
+        .button:hover {
+            background-color: #45a049; /* Darker green */
+        }
+        .button:disabled {
+            background-color: #d1d5db; /* Tailwind's gray-300 */
+            cursor: not-allowed;
+            opacity: 0.6; /* Reduced opacity for disabled state */
+        }
+        .table-container {
+            overflow-x: auto; /* Horizontal scrollbar for tables on small screens */
+            margin-bottom: 1rem;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); /* Tailwind's shadow-sm */
+        }
+        .table thead tr {
+            background-color: #f9fafb; /* Tailwind's gray-50 */
+        }
+        .table th, .table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .table th {
+            font-weight: 600; /* Tailwind's font-semibold */
+            color: #374151; /* Tailwind's gray-700 */
+        }
+        .table td {
+            color: #4b5563; /* Tailwind's gray-600 */
+        }
+        .table tbody tr:hover {
+            background-color: #f0f0f0; /* Light gray hover effect */
+        }
+        .form-group {
+            margin-bottom: 1.5rem; /* Increased margin for form groups */
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem; /* Tailwind's mb-2 */
+            font-weight: 500; /* Tailwind's font-medium */
+            color: #374151; /* Tailwind's gray-700 */
+            font-size: 0.875rem;
+        }
+        .select {
+            appearance: none; /* Remove default arrow */
+            -webkit-appearance: none;  /* Also remove for Safari */
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvgxmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E"); /* Custom arrow icon */
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center; /* Tailwind's right-3 */
+            background-size: 1rem; /* Tailwind's w-4 h-4 */
+            padding-right: 2.5rem; /* Make space for the arrow */
+        }
+        .select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .dialog-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            width: 90%; /* Responsive width */
+            max-width: 500px; /* Maximum width */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            transform: translateY(0);
+            transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+            opacity: 1;
+        }
+        .dialog-content.hidden {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        .dialog-header {
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .dialog-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.75rem;
+        }
+        .dialog-description {
+            color: #4b5563;
+        }
+        .dialog-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+        .dialog-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            border: none;
+        }
+        .dialog-button.cancel {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        .dialog-button.cancel:hover {
+            background-color: #d1d5db;
+        }
+        .dialog-button.confirm {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .dialog-button.confirm:hover {
+            background-color: #2563eb;
+        }
+        .hidden {
+            display: none;
+        }
+        .error-message {
+            color: #dc2626; /* Tailwind's red-500 */
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: #fee2e2;  /* Tailwind's red-100 */
+            border-radius: 0.375rem; /* Tailwind's rounded-md */
+            border: 1px solid #fecaca; /* Tailwind's red-200 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+<div class="container">
+    <h1 class="text-3xl font-semibold text-gray-800">ClickHouse Ingestion Tool</h1>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">ClickHouse Connection</h2>
+        <div class="form-group">
+            <label for="host">Host</label>
+            <input type="text" id="host" class="input" value="localhost" placeholder="localhost">
+        </div>
+        <div class="form-group">
+            <label for="port">Port</label>
+            <input type="number" id="port" class="input" value="8123" placeholder="8123">
+        </div>
+        <div class="form-group">
+            <label for="database">Database</label>
+            <input type="text" id="database" class="input" value="default" placeholder="default">
+        </div>
+        <div class="form-group">
+            <label for="user">User</label>
+            <input type="text" id="user" class="input" value="default" placeholder="default">
+        </div>
+        <div class="form-group">
+            <label for="jwtToken">JWT Token</label>
+            <input type="password" id="jwtToken" class="input" placeholder="JWT Token">
+        </div>
+        <button id="connectButton" class="button">Connect</button>
+        <div id="connectionError" class="error-message hidden"></div>
+    </div>
+
+    <div id="tableSection" class="bg-white p-6 rounded-lg shadow-md mt-8 hidden">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Tables</h2>
+        <div class="form-group">
+            <label for="tableSelect">Select Table</label>
+            <select id="tableSelect" class="select">
+            </select>
+        </div>
+
+        <div id="schemaSection" class="mt-4">
+            <h3 class="text-lg font-semibold mb-4 text-gray-800">Table Schema: <span id="selectedTableName"></span></h3>
+            <div id="tableSchema" class="table-container">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th class="text-gray-300">Column Name</th>
+                        <th class="text-gray-300">Data Type</th>
+                        <th class="text-gray-300">Select</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="clickhouseToFileSection" class="bg-white p-6 rounded-lg shadow-md mt-8 hidden">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Ingest ClickHouse Table to File</h2>
+        <div class="form-group">
+            <label for="fileName">Output File Name (e.g., output.csv)</label>
+            <input type="text" id="fileName" class="input" value="output.csv" placeholder="output.csv">
+        </div>
+        <div class="form-group">
+            <label for="delimiter">Delimiter (e.g., , or |)</label>
+            <input type="text" id="delimiter" class="input" value="," placeholder=",">
+        </div>
+        <button id="ingestClickhouseToFileButton" class="button" disabled>Start Ingestion</button>
+        <div id="ingestResult" class="text-green-600 mt-4"></div>
+        <div id="ingestError" class="error-message hidden"></div>
+    </div>
+
+    <div id="fileToClickhouseSection" class="bg-white p-6 rounded-lg shadow-md mt-8 hidden">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Ingest File to ClickHouse Table</h2>
+        <div class="form-group">
+            <label for="fileInput">Select File</label>
+            <input type="file" id="fileInput" class="mb-4">
+        </div>
+        <button id="ingestFileToClickhouseButton" class="button" disabled>Start File Ingestion</button>
+    </div>
+
+    <div id="ingestDialog" class="dialog hidden">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <h2 class="dialog-title">Confirm File Ingestion</h2>
+                <p class="dialog-description">
+                    You are about to ingest the selected file into the &quot;<span id="dialogTableName"></span>&quot; table.  Please confirm the settings.
+                </p>
+            </div>
+            <div class="form-group">
+                <label for="dialogDelimiter">Delimiter</label>
+                <input type="text" id="dialogDelimiter" class="input" value="," placeholder=",">
+            </div>
+            <div class="dialog-footer">
+                <button id="dialogCancelButton" class="dialog-button cancel">Cancel</button>
+                <button id="dialogConfirmButton" class="dialog-button confirm">Confirm Ingestion</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const connectionInfo = {
+        host: 'localhost',
+        port: 8080,
+        database: 'default',
+        user: 'default',
+        jwtToken: '',
+    };
+
+    const elements = {
+        hostInput: document.getElementById('host'),
+        portInput: document.getElementById('port'),
+        databaseInput: document.getElementById('database'),
+        userInput: document.getElementById('user'),
+        jwtTokenInput: document.getElementById('jwtToken'),
+        connectButton: document.getElementById('connectButton'),
+        tableSection: document.getElementById('tableSection'),
+        tableSelect: document.getElementById('tableSelect'),
+        schemaSection: document.getElementById('schemaSection'),
+        tableSchema: document.getElementById('tableSchema'),
+        selectedTableNameDisplay: document.getElementById('selectedTableName'),
+        ingestClickhouseToFileButton: document.getElementById('ingestClickhouseToFileButton'),
+        fileNameInput: document.getElementById('fileName'),
+        delimiterInput: document.getElementById('delimiter'),
+        ingestResult: document.getElementById('ingestResult'),
+        ingestError: document.getElementById('ingestError'),
+        fileToClickhouseSection: document.getElementById('fileToClickhouseSection'),
+        fileInput: document.getElementById('fileInput'),
+        ingestFileToClickhouseButton: document.getElementById('ingestFileToClickhouseButton'),
+        ingestDialog: document.getElementById('ingestDialog'),
+        dialogTableNameDisplay: document.getElementById('dialogTableName'),
+        dialogDelimiterInput: document.getElementById('dialogDelimiter'),
+        dialogCancelButton: document.getElementById('dialogCancelButton'),
+        dialogConfirmButton: document.getElementById('dialogConfirmButton'),
+        connectionError: document.getElementById('connectionError'),
+    };
+
+    let selectedTable = null;
+    let tableSchema = [];
+    let file = null;
+
+    elements.hostInput.addEventListener('change', (e) => {
+        connectionInfo.host = e.target.value;
+    });
+    elements.portInput.addEventListener('change', (e) => {
+        connectionInfo.port = parseInt(e.target.value);
+    });
+    elements.databaseInput.addEventListener('change', (e) => {
+        connectionInfo.database = e.target.value;
+    });
+    elements.userInput.addEventListener('change', (e) => {
+        connectionInfo.user = e.target.value;
+    });
+    elements.jwtTokenInput.addEventListener('change', (e) => {
+        connectionInfo.jwtToken = e.target.value;
+    });
+
+    elements.connectButton.addEventListener('click', () => {
+        elements.connectButton.disabled = true;
+        elements.connectionError.classList.add('hidden');
+        elements.tableSection.classList.add('hidden');
+        elements.clickhouseToFileSection.classList.add('hidden');
+        elements.fileToClickhouseSection.classList.add('hidden');
+        fetch('http://localhost:8080/clickhouse/connect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(connectionInfo),
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(`Failed to connect: ${response.status} - ${text}`) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                elements.connectButton.disabled = false;
+                elements.tableSection.classList.remove('hidden');
+                elements.tableSelect.innerHTML = '';
+                data.forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table;
+                    option.textContent = table;
+                    elements.tableSelect.appendChild(option);
+                });
+                if (data.length > 0) {
+                    selectedTable = data[0];
+                    fetchTableSchema(selectedTable);
+                }
+            })
+            .catch(error => {
+                elements.connectButton.disabled = false;
+                elements.connectionError.textContent = error.message;
+                elements.connectionError.classList.remove('hidden');
+                console.error('Connection error:', error);
+            });
+    });
+
+    elements.tableSelect.addEventListener('change', (e) => {
+        selectedTable = e.target.value;
+        fetchTableSchema(selectedTable);
+    });
+
+    function fetchTableSchema(tableName) {
+        fetch(`http://localhost:8080/clickhouse/schema?tableName=${tableName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(connectionInfo),
+        })
+            .then(response => {
+                if (!response.ok) {
+                     return response.text().then(text => { throw new Error(`Failed to fetch schema: ${response.status} - ${text}`) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                tableSchema = data;
+                elements.tableSchema.querySelector('tbody').innerHTML = '';
+                elements.selectedTableNameDisplay.textContent = tableName;
+                elements.ingestClickhouseToFileButton.disabled = false;
+                elements.ingestFileToClickhouseButton.disabled = false;
+                data.forEach(column => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="text-gray-300">${column.name}</td>
+                        <td class="text-gray-300">${column.type}</td>
+                        <td><input type="checkbox" class="column-checkbox" data-column="${column.name}" checked></td>
+                    `;
+                    elements.tableSchema.querySelector('tbody').appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Schema fetch error:', error);
+                elements.tableSchema.querySelector('tbody').innerHTML = `<tr colspan="2"><td class="text-center text-gray-400">No schema available</td></tr>`;
+            });
+    }
+
+    elements.ingestClickhouseToFileButton.addEventListener('click', () => {
+        elements.ingestResult.textContent = '';
+        elements.ingestError.classList.add('hidden');
+        const columns = Array.from(elements.tableSchema.querySelectorAll('.column-checkbox:checked'))
+            .map(checkbox => checkbox.dataset.column);
+        fetch(`http://localhost:8080/ingest/clickhouse-to-file?tableName=${selectedTable}&columns=${columns.join(',')}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                fileName: elements.fileNameInput.value,
+                delimiter: elements.delimiterInput.value,
+            }),
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(`Ingestion failed: ${response.status} - ${text}`) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                elements.ingestResult.textContent = `Ingestion successful. Records written: ${data.recordCount}`;
+            })
+            .catch(error => {
+                elements.ingestError.textContent = error.message;
+                elements.ingestError.classList.remove('hidden');
+                console.error('Ingestion error:', error);
+            });
+    });
+
+    elements.fileInput.addEventListener('change', (e) => {
+        file = e.target.files[0];
+    });
+
+    elements.ingestFileToClickhouseButton.addEventListener('click', () => {
+        if (!file) {
+            alert('Please select a file to ingest.');
+            return;
+        }
+        elements.dialogTableNameDisplay.textContent = selectedTable;
+        elements.ingestDialog.classList.remove('hidden');
+    });
+
+    elements.dialogCancelButton.addEventListener('click', () => {
+        elements.ingestDialog.classList.add('hidden');
+    });
+
+    elements.dialogConfirmButton.addEventListener('click', () => {
+        elements.ingestResult.textContent = '';
+        elements.ingestError.classList.add('hidden');
+        const columns = Array.from(elements.tableSchema.querySelectorAll('.column-checkbox:checked'))
+            .map(checkbox => checkbox.dataset.column);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('tableName', selectedTable);
+        formData.append('columns', JSON.stringify(columns));
+        formData.append('fileConfig', JSON.stringify({
+            delimiter: elements.dialogDelimiterInput.value,
+        }));
+        fetch('http://localhost:8080/ingest/file-to-clickhouse', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => {
+                if (!response.ok) {
+                     return response.text().then(text => { throw new Error(`File ingestion failed: ${response.status} - ${text}`) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                elements.ingestResult.textContent = `File ingestion successful. Records inserted: ${data.recordCount}`;
+                elements.ingestDialog.classList.add('hidden');
+            })
+            .catch(error => {
+                elements.ingestError.textContent = error.message;
+                elements.ingestError.classList.remove('hidden');
+                elements.ingestDialog.classList.add('hidden');
+                console.error('File ingestion error:', error);
+            });
+    });
+</script>
+</body>
+</html>
